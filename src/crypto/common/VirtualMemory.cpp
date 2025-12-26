@@ -34,6 +34,7 @@
 #include <mutex>
 
 
+
 namespace xmrig {
 
 
@@ -45,7 +46,7 @@ static std::mutex mutex;
 } // namespace xmrig
 
 
-xmrig::VirtualMemory::VirtualMemory(size_t size, bool hugePages, bool oneGbPages, bool usePool, uint32_t node, size_t alignSize) :
+xmrig::VirtualMemory::VirtualMemory(size_t size, bool hugePages, bool oneGbPages, bool usePool, uint32_t node, size_t alignSize, bool fileBacked) :
     m_size(alignToHugePageSize(size)),
     m_node(node),
     m_capacity(m_size)
@@ -71,6 +72,10 @@ xmrig::VirtualMemory::VirtualMemory(size_t size, bool hugePages, bool oneGbPages
     }
 
     if (hugePages && allocateLargePagesMemory()) {
+        return;
+    }
+
+    if (fileBacked && allocateFileBackedMemory()){
         return;
     }
 

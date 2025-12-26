@@ -30,6 +30,8 @@
 #include <iostream>
 #include <cstdio>
 
+#include <unistd.h>
+#include <fcntl.h>
 
 #ifdef XMRIG_OS_APPLE
 #   include <libkern/OSCacheControl.h>
@@ -199,6 +201,53 @@ void *xmrig::VirtualMemory::allocateLargePagesMemory(size_t size)
     return mem == MAP_FAILED ? nullptr : mem;
 }
 
+std::string getDocumentsPath(const std::string& filename) {
+    const char* home = getenv("HOME");
+    if (home) {
+        return std::string(home) + filename;
+    }
+    return "";
+}
+
+bool xmrig::VirtualMemory::allocateFileBackedMemory() {
+    //std::cout<<"entering allocateFileBackedMemory, size="<<m_size<<std::endl;
+    std::string path = getDocumentsPath("/Documents/cache.bin");
+    //std::cout<<"cache file path is "<<path<<std::endl;
+    //sleep(5);
+    
+    // 1. Create the file (O_CREAT) with Read/Write permissions (O_RDWR)
+    // S_IRUSR | S_IWUSR gives the owner read/write access
+    int fd = open(path.c_str(), O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+    if (fd == -1) {
+        perror("open failed");
+        std::cout<<"allocateFileBackedMemory open failed"<<std::endl;
+        return false;
+    }
+
+    // 2. CRITICAL STEP: Stretch the file to the desired size
+    // If you skip this, writing to the memory later will cause SIGBUS.
+    if (ftruncate(fd, m_size) == -1) {
+        perror("ftruncate failed");
+        std::cout<<"allocateFileBackedMemory ftruncate failed"<<std::endl;
+        close(fd);
+        return false;
+    }
+
+    // 3. Now map it
+    void* addr = mmap(NULL, m_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    
+    close(fd); // You can close fd now; the map stays alive
+
+    if (addr == MAP_FAILED) {
+        perror("allocateFileBackedMemory mmap failed");
+        std::cout<<"allocateFileBackedMemory mmap failed"<<std::endl;
+        return false;
+    }
+
+    m_scratchpad = static_cast<uint8_t*>(addr);
+    return true;
+}
+
 
 void *xmrig::VirtualMemory::allocateOneGbPagesMemory(size_t size)
 {
@@ -249,7 +298,7 @@ bool xmrig::VirtualMemory::allocateLargePagesMemory()
         m_flags.set(FLAG_HUGEPAGES, true);
 
         madvise(m_scratchpad, m_size, MADV_RANDOM | MADV_WILLNEED);
-
+        
         if (mlock(m_scratchpad, m_size) == 0) {
             m_flags.set(FLAG_LOCK, true);
         }

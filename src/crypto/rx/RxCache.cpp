@@ -30,12 +30,15 @@
 #include "crypto/randomx/randomx.h"
 
 
+
 static_assert(RANDOMX_FLAG_JIT == 8, "RANDOMX_FLAG_JIT flag mismatch");
 
 
 xmrig::RxCache::RxCache(bool hugePages, uint32_t nodeId)
 {
-    m_memory = new VirtualMemory(maxSize(), hugePages, false, false, nodeId);
+    //m_memory = new VirtualMemory(maxSize(), hugePages, false, false, nodeId); // killed by jetsam on a 4gb device at madvise and mlock
+    //m_memory = new VirtualMemory(maxSize(), false, false, false, nodeId); // force use normal memory for rxcache, still killed when initializing dataset
+    m_memory = new VirtualMemory(maxSize(), false, false, false, nodeId, 64, true); // force use file-backed memory
 
     create(m_memory->raw());
 }
@@ -54,6 +57,13 @@ xmrig::RxCache::~RxCache()
     delete m_memory;
 }
 
+// void evict_file_pages(void* addr, size_t len){
+//     msync(addr, len, MS_SYNC);
+//     int ret = madvise(addr, len, MADV_DONTNEED);
+//     if (ret != 0){
+//         perror("evict_file_pages madvise failed");
+//     }
+// }
 
 bool xmrig::RxCache::init(const Buffer &seed)
 {
@@ -65,7 +75,7 @@ bool xmrig::RxCache::init(const Buffer &seed)
 
     if (m_cache) {
         randomx_init_cache(m_cache, m_seed.data(), m_seed.size());
-
+        //evict_file_pages(m_memory->raw(), size()); // may evict pages after cache initialiation to lower memory footprint
         return true;
     }
 

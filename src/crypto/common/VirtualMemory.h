@@ -42,7 +42,7 @@ public:
     constexpr static size_t kDefaultHugePageSize    = 2U * 1024U * 1024U;
     constexpr static size_t kOneGiB                 = 1024U * 1024U * 1024U;
 
-    VirtualMemory(size_t size, bool hugePages, bool oneGbPages, bool usePool, uint32_t node = 0, size_t alignSize = 64);
+    VirtualMemory(size_t size, bool hugePages, bool oneGbPages, bool usePool, uint32_t node = 0, size_t alignSize = 64, bool fileBacked = false);
     ~VirtualMemory();
 
     inline bool isHugePages() const                                 { return m_flags.test(FLAG_HUGEPAGES); }
@@ -87,6 +87,7 @@ private:
 
     bool allocateLargePagesMemory();
     bool allocateOneGbPagesMemory();
+    bool allocateFileBackedMemory();
     void freeLargePagesMemory();
 
     static size_t m_hugePageSize;
