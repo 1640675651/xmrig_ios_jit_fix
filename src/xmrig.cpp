@@ -20,8 +20,8 @@
 #include "base/kernel/Entry.h"
 #include "base/kernel/Process.h"
 
-
-int main(int argc, char **argv)
+extern "C"{
+int start_engine(int argc, char **argv)
 {
     using namespace xmrig;
 
@@ -34,4 +34,5 @@ int main(int argc, char **argv)
     App app(&process);
 
     return app.exec();
+}
 }
