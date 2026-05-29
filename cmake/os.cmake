@@ -34,6 +34,10 @@ elseif(XMRIG_OS_APPLE)
     if (XMRIG_ARM)
         set(WITH_SECURE_JIT ON)
     endif()
+
+    if (XMRIG_OS_IOS AND XMRIG_ARM)
+        add_definitions(-DXMRIG_IOS_DUAL_JIT)
+    endif()
 elseif(XMRIG_OS_UNIX)
     add_definitions(-DXMRIG_OS_UNIX)
 

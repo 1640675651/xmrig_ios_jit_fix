@@ -30,6 +30,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <cstddef>
 
+struct JitMemoryMapping {
+	void* rx;
+	void* rw;
+
+	JitMemoryMapping() : rx(nullptr), rw(nullptr) {}
+	JitMemoryMapping(void *rxPtr, void *rwPtr) : rx(rxPtr), rw(rwPtr) {}
+};
+
+bool allocJitMemory(std::size_t bytes, bool hugePages, JitMemoryMapping& mapping);
+void freeJitMemory(const JitMemoryMapping& mapping, std::size_t bytes);
+
 void* allocExecutableMemory(std::size_t, bool);
 void* allocLargePagesMemory(std::size_t);
 void freePagedMemory(void*, std::size_t);

@@ -63,6 +63,8 @@ public:
     static bool protectRX(void *p, size_t size);
     static uint32_t bindToNUMANode(int64_t affinity);
     static void *allocateExecutableMemory(size_t size, bool hugePages);
+    static bool allocateDualJitMemory(size_t size, void **rx, void **rw);
+    static void freeDualJitMemory(void *rx, void *rw, size_t size);
     static void *allocateLargePagesMemory(size_t size);
     static void *allocateOneGbPagesMemory(size_t size);
     static void destroy();

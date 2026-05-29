@@ -33,6 +33,18 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "crypto/randomx/virtual_memory.hpp"
 
 
+bool allocJitMemory(std::size_t bytes, bool hugePages, JitMemoryMapping& mapping)
+{
+	return xmrig::VirtualMemory::allocateDualJitMemory(bytes, &mapping.rx, &mapping.rw);
+}
+
+
+void freeJitMemory(const JitMemoryMapping& mapping, std::size_t bytes)
+{
+	xmrig::VirtualMemory::freeDualJitMemory(mapping.rx, mapping.rw, bytes);
+}
+
+
 void* allocExecutableMemory(std::size_t bytes, bool hugePages) {
     void *mem = xmrig::VirtualMemory::allocateExecutableMemory(bytes, hugePages);
     if (mem == nullptr) {

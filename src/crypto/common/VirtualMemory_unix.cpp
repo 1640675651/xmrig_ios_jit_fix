@@ -35,9 +35,25 @@
 
 #ifdef XMRIG_OS_APPLE
 #   include <libkern/OSCacheControl.h>
+#   include <mach/mach.h>
 #   include <mach/vm_statistics.h>
 #   include <pthread.h>
 #   include <TargetConditionals.h>
+#   if defined(XMRIG_IOS_DUAL_JIT)
+extern "C" kern_return_t mach_vm_remap(
+    vm_map_t target_task,
+    mach_vm_address_t *target_address,
+    mach_vm_size_t size,
+    mach_vm_offset_t mask,
+    int flags,
+    vm_map_t src_task,
+    mach_vm_address_t src_address,
+    boolean_t copy,
+    vm_prot_t *cur_protection,
+    vm_prot_t *max_protection,
+    vm_inherit_t inheritance
+);
+#   endif
 #   ifdef XMRIG_ARM
 #       define MEXTRA MAP_JIT
 #   else
@@ -142,6 +158,113 @@ bool xmrig::VirtualMemory::protectRX(void *p, size_t size)
 #   endif
 
     return result;
+}
+
+
+#   if defined(XMRIG_IOS_DUAL_JIT)
+namespace {
+
+static void breakPrepareJitRegion(mach_vm_address_t addr, size_t len)
+{
+    asm volatile(
+        "mov x0, %0\n"
+        "mov x1, %1\n"
+        "brk #0x69"
+        :
+        : "r"(addr), "r"(len)
+        : "x0", "x1", "memory"
+    );
+}
+
+} // namespace
+#   endif
+
+
+bool xmrig::VirtualMemory::allocateDualJitMemory(size_t size, void **rx, void **rw)
+{
+    if (!rx || !rw) {
+        return false;
+    }
+
+#   if defined(XMRIG_IOS_DUAL_JIT)
+    // iOS 26 JIT workaround: mmap RX, remap to buf_rx, register via brk #0x69, downgrade buf_rw to RW.
+    // See jit_example_ios26.cpp in the project root.
+    const size_t pageSize = static_cast<size_t>(sysconf(_SC_PAGESIZE));
+    const size_t vmSize = (size + pageSize - 1) & ~(pageSize - 1);
+
+    void *buf_rw = mmap(nullptr, vmSize, PROT_READ | PROT_EXEC, MAP_PRIVATE | MAP_ANON, -1, 0);
+    if (buf_rw == MAP_FAILED) {
+        return false;
+    }
+
+    mach_vm_address_t buf_rx = 0;
+    vm_prot_t cur_prot = 0;
+    vm_prot_t max_prot = 0;
+
+    const kern_return_t kr = mach_vm_remap(
+        mach_task_self(),
+        &buf_rx,
+        vmSize,
+        0,
+        VM_FLAGS_ANYWHERE,
+        mach_task_self(),
+        reinterpret_cast<mach_vm_address_t>(buf_rw),
+        FALSE,
+        &cur_prot,
+        &max_prot,
+        VM_INHERIT_NONE
+    );
+
+    if (kr != KERN_SUCCESS) {
+        munmap(buf_rw, vmSize);
+        return false;
+    }
+
+    breakPrepareJitRegion(buf_rx, vmSize);
+
+    if (mprotect(buf_rw, vmSize, PROT_READ | PROT_WRITE) != 0) {
+        munmap(buf_rw, vmSize);
+        munmap(reinterpret_cast<void*>(buf_rx), vmSize);
+        return false;
+    }
+
+    *rw = buf_rw;
+    *rx = reinterpret_cast<void*>(buf_rx);
+    return true;
+#   else
+    void *mem = allocateExecutableMemory(size, false);
+    if (!mem) {
+        return false;
+    }
+
+    *rx = mem;
+    *rw = mem;
+    return true;
+#   endif
+}
+
+
+void xmrig::VirtualMemory::freeDualJitMemory(void *rx, void *rw, size_t size)
+{
+    if (!rx && !rw) {
+        return;
+    }
+
+#   if defined(XMRIG_IOS_DUAL_JIT)
+    const size_t pageSize = static_cast<size_t>(sysconf(_SC_PAGESIZE));
+    const size_t vmSize = (size + pageSize - 1) & ~(pageSize - 1);
+
+    if (rw) {
+        munmap(rw, vmSize);
+    }
+
+    if (rx && rx != rw) {
+        munmap(rx, vmSize);
+    }
+#   else
+    (void) rx;
+    freeLargePagesMemory(rw, size);
+#   endif
 }
 
 

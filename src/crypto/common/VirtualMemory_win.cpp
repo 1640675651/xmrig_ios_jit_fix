@@ -186,6 +186,26 @@ bool xmrig::VirtualMemory::protectRX(void *p, size_t size)
 }
 
 
+bool xmrig::VirtualMemory::allocateDualJitMemory(size_t size, void **rx, void **rw)
+{
+    void *mem = allocateExecutableMemory(size, hugePages);
+    if (!mem) {
+        return false;
+    }
+
+    *rx = mem;
+    *rw = mem;
+    return true;
+}
+
+
+void xmrig::VirtualMemory::freeDualJitMemory(void *rx, void *rw, size_t size)
+{
+    (void) rx;
+    freeLargePagesMemory(rw, size);
+}
+
+
 void *xmrig::VirtualMemory::allocateExecutableMemory(size_t size, bool hugePages)
 {
     void* result = nullptr;
