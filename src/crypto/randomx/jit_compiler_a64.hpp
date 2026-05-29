@@ -68,7 +68,7 @@ namespace randomx {
 		}
 
 		DatasetInitFunc* getDatasetInitFunc() const;
-		uint8_t* getCode() { return code_rw; }
+		uint8_t* getCode() { return code; }
 		size_t getCodeSize();
 
 		void enableWriting() const;
@@ -79,8 +79,8 @@ namespace randomx {
 	private:
 		const bool hugePages;
 		uint32_t reg_changed_offset[8]{};
+		uint8_t* code = nullptr;
 		uint8_t* code_rx = nullptr;
-		uint8_t* code_rw = nullptr;
 		bool dualMapping = false;
 		uint32_t literalPos;
 		uint32_t num32bitLiterals = 0;
@@ -88,41 +88,26 @@ namespace randomx {
 
 		void allocate(size_t size);
 
-		inline uint8_t* execPtr(uint32_t offset) const {
-			return code_rx + offset;
-		}
-
-		inline uint8_t* writePtr(uint32_t offset) const {
-			return code_rw + offset;
-		}
-
-		// PC-relative offset in 32-bit instruction words (ARM64), using execute mapping addresses.
-		inline int32_t pcRelImm26(uint32_t insnOffset, uint32_t targetOffset) const {
-			const uintptr_t pc = reinterpret_cast<uintptr_t>(execPtr(insnOffset));
-			const uintptr_t target = reinterpret_cast<uintptr_t>(execPtr(targetOffset));
-			return static_cast<int32_t>((target - pc) / 4);
-		}
-
-		void emit32(uint32_t val, uint32_t& codePos) const
+		static void emit32(uint32_t val, uint8_t* code, uint32_t& codePos)
 		{
-			*(uint32_t*)(writePtr(codePos)) = val;
+			*(uint32_t*)(code + codePos) = val;
 			codePos += sizeof(val);
 		}
 
-		void emit64(uint64_t val, uint32_t& codePos) const
+		static void emit64(uint64_t val, uint8_t* code, uint32_t& codePos)
 		{
-			*(uint64_t*)(writePtr(codePos)) = val;
+			*(uint64_t*)(code + codePos) = val;
 			codePos += sizeof(val);
 		}
 
-		void emitMovImmediate(uint32_t dst, uint32_t imm, uint32_t& codePos);
-		void emitAddImmediate(uint32_t dst, uint32_t src, uint32_t imm, uint32_t& codePos);
+		void emitMovImmediate(uint32_t dst, uint32_t imm, uint8_t* code, uint32_t& codePos);
+		void emitAddImmediate(uint32_t dst, uint32_t src, uint32_t imm, uint8_t* code, uint32_t& codePos);
 
 		template<uint32_t tmp_reg>
-		void emitMemLoad(uint32_t dst, uint32_t src, Instruction& instr, uint32_t& codePos);
+		void emitMemLoad(uint32_t dst, uint32_t src, Instruction& instr, uint8_t* code, uint32_t& codePos);
 
 		template<uint32_t tmp_reg_fp>
-		void emitMemLoadFP(uint32_t src, Instruction& instr, uint32_t& codePos);
+		void emitMemLoadFP(uint32_t src, Instruction& instr, uint8_t* code, uint32_t& codePos);
 
 	public:
 		void h_IADD_RS(Instruction&, uint32_t&);

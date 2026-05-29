@@ -1,6 +1,6 @@
 cmake .. -G Xcode\
-  -DCMAKE_TOOLCHAIN_FILE=/path/to/ios.toolchain.cmake
   -DPLATFORM=OS64\
+  -DCMAKE_TOOLCHAIN_FILE=cmake/ios.toolchain.cmake\
   -DWITH_HWLOC=false\
   -DWITH_TLS=false\
   -DWITH_OPENCL=false\
