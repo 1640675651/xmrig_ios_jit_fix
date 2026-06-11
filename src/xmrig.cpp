@@ -20,7 +20,11 @@
 #include "base/kernel/Entry.h"
 #include "base/kernel/Process.h"
 
-extern "C"{
+#include <csignal>
+
+
+extern "C" {
+
 int start_engine(int argc, char **argv)
 {
     using namespace xmrig;
@@ -35,4 +39,11 @@ int start_engine(int argc, char **argv)
 
     return app.exec();
 }
+
+
+void stop_engine()
+{
+    raise(SIGINT);
+}
+
 }
